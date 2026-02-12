@@ -97,7 +97,7 @@ const MicrofluidicSimulator = () => {
   // --- 3. 核心计算逻辑 (Calculation) ---
   useEffect(() => {
     calculateSimulation();
-  }, [params]);
+  }, [calculateSimulation]);// 将 calculateSimulation 添加至此
 
   const calculateSimulation = () => {
     const { nozzleSize, volCell, volBead, volOil, cellTotal, beadSize, packingEfficiency, qCell, qBead, qOil } = params;
@@ -132,7 +132,7 @@ const MicrofluidicSimulator = () => {
     // 假设均匀混合，液体占比 = 液体流速 / 总流速
     const waterFraction = flowLiquidTotal / flowTotalInput;
     const liquidVolInDrop_pL = dropVolume_pL * waterFraction;
-    const solidVolInDrop_pL = dropVolume_pL * (1 - waterFraction); // 理论计算的固相分配量
+    // const solidVolInDrop_pL = dropVolume_pL * (1 - waterFraction); // 理论计算的固相分配量 变量已赋值但未使用（第 135 行）
 
     // --- D. 宏观运行指标 (Operations) ---
     const dropVolume_uL = dropVolume_pL / 1e6;
