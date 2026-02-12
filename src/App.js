@@ -83,7 +83,7 @@ const MicrofluidicSimulator = () => {
   const loadPreset = (type) => {
     if (type === '10xV4') {
       setParams({
-        ...params, nozzleSize: 57.14, volCell: 75, volBead: 60, volOil: 70, cellTotal: 20000,
+        ...params, nozzleSize: 54.29, volCell: 75, volBead: 60, volOil: 70, cellTotal: 20000,
         beadSize: 52, packingEfficiency: 0.60, qOil: 15.87, qCell: 17, qBead: 6.8 
       });
     } else if (type === 'PDMS') {
@@ -131,10 +131,10 @@ const calculateSimulation = useCallback(() => {
     const dropVolume_pL = (4/3) * Math.PI * Math.pow(dropDiameter / 2, 3) / 1000;
 
     // --- C. 液滴内部组分 (Composition) ---
-    // 假设均匀混合，液体占比 = 液体流速 / 总流速
-    const waterFraction = flowLiquidTotal / flowTotalInput;
-    const liquidVolInDrop_pL = dropVolume_pL * waterFraction;
-    // const solidVolInDrop_pL = dropVolume_pL * (1 - waterFraction); // 理论计算的固相分配量 变量已赋值但未使用（第 135 行）
+    // 假设均匀混合，液滴内液体占比 = 液体流速 / 总流速(液体+胶珠固体)
+    const liquidFractionInDrop = flowLiquidTotal / flowTotalInput;
+    const liquidVolInDrop_pL = dropVolume_pL * liquidFractionInDrop;
+    // const solidVolInDrop_pL = dropVolume_pL * (1 - liquidFractionInDrop); // 理论计算的固相分配量
 
     // --- D. 宏观运行指标 (Operations) ---
     const dropVolume_uL = dropVolume_pL / 1e6;
@@ -189,7 +189,7 @@ const calculateSimulation = useCallback(() => {
       dropVolume: dropVolume_pL.toFixed(0),
       beadSolidVol: beadSolidVol_pL.toFixed(0),
       liquidVol: liquidVolInDrop_pL.toFixed(0),
-      liquidRatio: (waterFraction * 100).toFixed(1),
+      liquidRatio: (liquidFractionInDrop * 100).toFixed(1),
       // 运行结果
       frequency: frequency.toFixed(0),
       runTime: runTimeMin.toFixed(1),
@@ -348,7 +348,7 @@ const calculateSimulation = useCallback(() => {
                   <span style={styles.resultValue}>{results.dropVolume} pL</span>
                 </div>
                 <div style={{...styles.resultItem, ...styles.borderBlue}}>
-                  <span style={styles.resultLabel}>液体/水相占比</span>
+                  <span style={styles.resultLabel}>液滴内液体占比</span>
                   <span style={styles.resultValue}>{results.liquidRatio}%</span>
                 </div>
                 <div style={{...styles.resultItem, ...styles.borderGreen}}>
@@ -450,7 +450,7 @@ const calculateSimulation = useCallback(() => {
                 加上Cell相，总液体流速为 <b>{results.flowLiquidTotal} uL/min</b>。
               </div>
               <div style={styles.logicArrow}>➔</div>
-              <div style={styles.logicDesc}><b>结果:</b> 液体占比 {results.liquidRatio}%</div>
+              <div style={styles.logicDesc}><b>结果:</b> 液滴内液体占比 {results.liquidRatio}%</div>
             </div>
             <div style={styles.logicRow}>
               <div style={styles.logicDesc}><b>Packing 概念:</b> Packing Efficiency = 胶珠实体体积 / Bead浆液总体积。值越高，单位体积浆液内胶珠越多。</div>

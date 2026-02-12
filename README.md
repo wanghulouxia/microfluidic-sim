@@ -1,70 +1,36 @@
-# Getting Started with Create React App
+# 微流控单细胞模拟器
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+一个基于 React 的前端模拟工具，用于快速评估单细胞微流控参数（液滴直径、胶珠占有率、双胞率、捕获效率等）之间的关系。
 
-## Available Scripts
+演示地址：<https://microfluidic-sim.netlify.app/>
 
-In the project directory, you can run:
+## 项目结构
+- `src/`：核心源码（界面、计算逻辑、测试）。
+- `public/`：静态资源与 HTML 模板。
+- `build/`：生产构建输出目录。
 
-### `npm start`
+## 本地开发
+1. 安装依赖
+```bash
+npm install
+```
+2. 启动开发环境
+```bash
+npm start
+```
+默认访问：<http://localhost:3000>
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+## 常用命令
+- `npm start`：本地开发与热更新。
+- `npm test`：运行测试（Jest + React Testing Library）。
+- `npm run build`：生成生产版本到 `build/`。
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+## 10x 预设参数（当前默认）
+- `nozzleSize = 54.29 μm`
+- `qCell = 17 μL/min`
+- `qOil = 15.87 μL/min`
+- `qBead = 6.8 μL/min`
+- 其余保持：`volCell=75`、`volBead=60`、`volOil=70`、`beadSize=52`、`packingEfficiency=0.60`
 
-### `npm test`
-
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
-
-### `npm run build`
-
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
-
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
-
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
-
-### `npm run eject`
-
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
-
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
-
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
-
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
-
-## Learn More
-
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
-
-To learn React, check out the [React documentation](https://reactjs.org/).
-
-### Code Splitting
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
-
-### Analyzing the Bundle Size
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
-
-### Making a Progressive Web App
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
-
-### Advanced Configuration
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
-
-### Deployment
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
-
-### `npm run build` fails to minify
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+## 说明
+- 该项目目前采用简化物理模型，结果用于参数探索与相对比较，不应直接替代实验标定。
