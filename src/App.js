@@ -83,8 +83,8 @@ const MicrofluidicSimulator = () => {
   const loadPreset = (type) => {
     if (type === '10xV4') {
       setParams({
-        ...params, nozzleSize: 85, volCell: 75, volBead: 60, volOil: 70, cellTotal: 20000,
-        beadSize: 52, packingEfficiency: 0.60, qOil: 60, qCell: 20, qBead: 16 
+        ...params, nozzleSize: 57.14, volCell: 75, volBead: 60, volOil: 70, cellTotal: 20000,
+        beadSize: 52, packingEfficiency: 0.60, qOil: 15.87, qCell: 17, qBead: 6.8 
       });
     } else if (type === 'PDMS') {
       setParams({
@@ -144,7 +144,7 @@ const calculateSimulation = useCallback(() => {
     const timeCell = volCell / qCell;
     const timeBead = volBead / qBead;
     const timeOil = volOil / qOil;
-    const runTimeMin = Math.min(timeCell, timeBead); 
+    const runTimeMin = Math.min(timeCell, timeBead, timeOil); 
     const totalDrops = frequency * runTimeMin * 60;
 
     // --- E. 统计学与捕获 (Statistics) ---
@@ -178,8 +178,9 @@ const calculateSimulation = useCallback(() => {
     if (qOil < flowTotalInput) errors.push("⚠️ 射流风险 (Jetting): 油流速 < 水流速，无法稳定切断液滴！");
     if (dropDiameter < beadSize) errors.push("⛔ 物理堵塞: 液滴直径 < 胶珠直径！");
     if (beadOccupancy > 1.2) errors.push("⚠️ 胶珠过载: Occupancy > 120%，将出现双珠 (Doublet Beads)。");
-    if (timeOil < runTimeMin) errors.push("⚠️ 油量不足: 油相将最先耗尽，实验中断！");
-    if (timeBead < timeCell * 0.8) errors.push(`⚠️ 试剂浪费: 胶珠将提前 ${ (timeCell - timeBead).toFixed(1) } 分钟耗尽。`);
+    if (timeOil <= timeCell && timeOil <= timeBead) errors.push("⚠️ 油量限制: 油相将最先耗尽，实验提前结束。");
+    const otherPhaseLimit = Math.min(timeCell, timeOil);
+    if (timeBead < otherPhaseLimit * 0.8) errors.push(`⚠️ 试剂浪费: 胶珠将提前 ${ (otherPhaseLimit - timeBead).toFixed(1) } 分钟耗尽。`);
 
     setWarnings(errors);
     setResults({
@@ -195,6 +196,7 @@ const calculateSimulation = useCallback(() => {
       totalDrops: Math.floor(totalDrops).toLocaleString(),
       timeCell: timeCell.toFixed(1),
       timeBead: timeBead.toFixed(1),
+      timeOil: timeOil.toFixed(1),
       beadNumberDensity: beadNumberDensity.toFixed(0),
       // 统计结果
       beadOccupancy: (beadOccupancy * 100).toFixed(1),
@@ -474,12 +476,12 @@ const calculateSimulation = useCallback(() => {
             </div>
             <div style={styles.logicRow}>
               <div style={styles.logicDesc}><b>计算公式:</b></div>
-              <div style={styles.logicFormula}>Time = min(Vol_cell/Q_cell, Vol_bead/Q_bead)</div>
+              <div style={styles.logicFormula}>Time = min(Vol_cell/Q_cell, Vol_bead/Q_bead, Vol_oil/Q_oil)</div>
             </div>
             <div style={styles.logicRow}>
               <div style={styles.logicDesc}>
-                Cell相可跑 <b>{results.timeCell} min</b>，Bead相可跑 <b>{results.timeBead} min</b>。<br/>
-                实验将在最快耗尽的一相停止。
+                Cell相可跑 <b>{results.timeCell} min</b>，Bead相可跑 <b>{results.timeBead} min</b>，Oil相可跑 <b>{results.timeOil} min</b>。<br/>
+                实验将在最先耗尽的一相停止。
                 频率 = 总流速 / 单液滴体积。
               </div>
               <div style={styles.logicArrow}>➔</div>
