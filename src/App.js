@@ -1,5 +1,24 @@
 import React, { useState, useEffect, useCallback } from 'react';
 
+const MODEL_PROFILES = {
+  // Keep 10x model unchanged to preserve current calibrated behavior.
+  '10xV4': {
+    label: '10x V4 (Chip X/GEM-X)',
+    diameterBase: 1.0,
+    diameterFlowCoeff: 0.5,
+    diameterFlowExp: 1.0,
+    minOilToAqRatio: 1.0
+  },
+  // PDMS profile: slightly different droplet-growth sensitivity and stricter oil margin.
+  PDMS: {
+    label: 'PDMS 自研芯片',
+    diameterBase: 1.03,
+    diameterFlowCoeff: 0.42,
+    diameterFlowExp: 0.9,
+    minOilToAqRatio: 1.1
+  }
+};
+
 // --- 样式系统 ---
 const styles = {
   container: { fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif', padding: '20px', maxWidth: '1400px', margin: '0 auto', backgroundColor: '#f4f6f8', color: '#333' },
@@ -58,22 +77,24 @@ const styles = {
 };
 
 const MicrofluidicSimulator = () => {
+  const [modelMode, setModelMode] = useState('PDMS');
+  const [modelParams, setModelParams] = useState({ ...MODEL_PROFILES.PDMS });
   // --- 1. 全量状态管理 (Inputs) ---
   const [params, setParams] = useState({
     // A. 几何参数
-    nozzleSize: 85, // um
+    nozzleSize: 81.26, // um
     // B. 试剂体积
-    volCell: 140, // uL
-    volBead: 50,  // uL
-    volOil: 400,  // uL
+    volCell: 70, // uL
+    volBead: 70,  // uL
+    volOil: 250,  // uL
     cellTotal: 20000, 
     // C. 胶珠物理属性
     beadSize: 52, // um
     packingEfficiency: 0.60, // 0-1
     // D. 流速控制
-    qCell: 8, // uL/min
-    qBead: 2, // uL/min (浆液)
-    qOil: 25, // uL/min
+    qCell: 16.1, // uL/min
+    qBead: 9.2, // uL/min (浆液)
+    qOil: 57.5, // uL/min
   });
 
   const [results, setResults] = useState({});
@@ -82,14 +103,18 @@ const MicrofluidicSimulator = () => {
   // --- 2. 预设场景 ---
   const loadPreset = (type) => {
     if (type === '10xV4') {
+      setModelMode('10xV4');
+      setModelParams({ ...MODEL_PROFILES['10xV4'] });
       setParams({
         ...params, nozzleSize: 54.29, volCell: 75, volBead: 60, volOil: 70, cellTotal: 20000,
         beadSize: 52, packingEfficiency: 0.60, qOil: 15.87, qCell: 17, qBead: 6.8 
       });
     } else if (type === 'PDMS') {
+      setModelMode('PDMS');
+      setModelParams({ ...MODEL_PROFILES.PDMS });
       setParams({
-        ...params, nozzleSize: 87, volCell: 140, volBead: 50, volOil: 400, cellTotal: 20000,
-        beadSize: 52, packingEfficiency: 0.60, qOil: 25, qCell: 8, qBead: 2
+        ...params, nozzleSize: 81.26, volCell: 70, volBead: 70, volOil: 250, cellTotal: 20000,
+        beadSize: 52, packingEfficiency: 0.60, qOil: 57.5, qCell: 16.1, qBead: 9.2
       });
     }
   };
@@ -103,6 +128,7 @@ const MicrofluidicSimulator = () => {
   // 使用 useCallback 包裹函数
 const calculateSimulation = useCallback(() => {
     const { nozzleSize, volCell, volBead, volOil, cellTotal, beadSize, packingEfficiency, qCell, qBead, qOil } = params;
+    const profile = modelParams;
     const errors = [];
 
     // --- A. 基础物理量 ---
@@ -124,9 +150,9 @@ const calculateSimulation = useCallback(() => {
     if (flowTotalInput === 0 || qOil === 0) return;
     const flowRatio = flowTotalInput / qOil; // 水油比 Q_aq / Q_oil
     
-    // Scaling Law: D ~ w * (1 + alpha * Q_aq / Q_oil)
-    // 1.0 是基础系数，0.5 是流速比影响系数
-    const diameterFactor = 1.0 + (0.5 * flowRatio); 
+    // Mode-specific scaling law:
+    // D ~ w * (k0 + k1 * (Q_aq/Q_oil)^beta)
+    const diameterFactor = profile.diameterBase + (profile.diameterFlowCoeff * Math.pow(flowRatio, profile.diameterFlowExp)); 
     const dropDiameter = nozzleSize * diameterFactor; 
     const dropVolume_pL = (4/3) * Math.PI * Math.pow(dropDiameter / 2, 3) / 1000;
 
@@ -175,7 +201,9 @@ const calculateSimulation = useCallback(() => {
     const efficiency = (capturedCells / cellTotal) * 100;
 
     // --- F. 警报逻辑 ---
-    if (qOil < flowTotalInput) errors.push("⚠️ 射流风险 (Jetting): 油流速 < 水流速，无法稳定切断液滴！");
+    if (qOil < flowTotalInput * profile.minOilToAqRatio) {
+      errors.push(`⚠️ 射流风险 (Jetting): 当前模型要求 Q_oil >= ${profile.minOilToAqRatio.toFixed(2)} × Q_aq。`);
+    }
     if (dropDiameter < beadSize) errors.push("⛔ 物理堵塞: 液滴直径 < 胶珠直径！");
     if (beadOccupancy > 1.2) errors.push("⚠️ 胶珠过载: Occupancy > 120%，将出现双珠 (Doublet Beads)。");
     if (timeOil <= timeCell && timeOil <= timeBead) errors.push("⚠️ 油量限制: 油相将最先耗尽，实验提前结束。");
@@ -208,9 +236,14 @@ const calculateSimulation = useCallback(() => {
       flowRatio: flowRatio.toFixed(2),
       flowSolid: flowSolid.toFixed(2),
       flowLiquidTotal: flowLiquidTotal.toFixed(2),
-      flowTotalInput: flowTotalInput.toFixed(2)
+      flowTotalInput: flowTotalInput.toFixed(2),
+      modelLabel: profile.label,
+      diameterBase: profile.diameterBase.toFixed(2),
+      diameterFlowCoeff: profile.diameterFlowCoeff.toFixed(2),
+      diameterFlowExp: profile.diameterFlowExp.toFixed(2),
+      minOilToAqRatio: profile.minOilToAqRatio.toFixed(2)
     });
-  }, [params]); // 注意：这是 useCallback 的依赖数组
+  }, [params, modelParams]); // 注意：这是 useCallback 的依赖数组
 // 使用稳定的 calculateSimulation 函数作为依赖
   useEffect(() => {
     calculateSimulation();
@@ -219,6 +252,13 @@ const calculateSimulation = useCallback(() => {
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setParams({ ...params, [name]: parseFloat(value) });
+  };
+  const handleModelParamChange = (e) => {
+    const { name, value } = e.target;
+    setModelParams({ ...modelParams, [name]: name === 'label' ? value : parseFloat(value) });
+  };
+  const resetModelProfile = () => {
+    setModelParams({ ...(MODEL_PROFILES[modelMode] || MODEL_PROFILES.PDMS) });
   };
 
   return (
@@ -294,12 +334,43 @@ const calculateSimulation = useCallback(() => {
               <input type="range" min="1" max="30" name="qBead" value={params.qBead} onChange={handleInputChange} style={styles.range} />
             </div>
           </div>
+
+          <div style={styles.card}>
+            <div style={styles.sectionTitle}><span>4. 高级模型参数 (Calibration)</span><span>⚙️</span></div>
+            <small style={{color:'#95a5a6'}}>
+              {modelMode === '10xV4'
+                ? '* 10x 模型参数已锁定（保持当前校准）。切换到 PDMS 模式可调参。'
+                : '* 用于 PDMS 模型标定：按实验结果微调 k0/k1/β 与油相安全比。'}
+            </small>
+            <div style={styles.inputGroup}>
+              <label style={styles.label}>k0 基础系数 <span style={{color:'#3498db'}}>{modelParams.diameterBase.toFixed(2)}</span></label>
+              <input type="range" min="0.8" max="1.2" step="0.01" name="diameterBase" value={modelParams.diameterBase} onChange={handleModelParamChange} style={styles.range} disabled={modelMode === '10xV4'} />
+            </div>
+            <div style={styles.inputGroup}>
+              <label style={styles.label}>k1 流速敏感系数 <span style={{color:'#3498db'}}>{modelParams.diameterFlowCoeff.toFixed(2)}</span></label>
+              <input type="range" min="0.2" max="0.8" step="0.01" name="diameterFlowCoeff" value={modelParams.diameterFlowCoeff} onChange={handleModelParamChange} style={styles.range} disabled={modelMode === '10xV4'} />
+            </div>
+            <div style={styles.inputGroup}>
+              <label style={styles.label}>β 幂指数 <span style={{color:'#3498db'}}>{modelParams.diameterFlowExp.toFixed(2)}</span></label>
+              <input type="range" min="0.6" max="1.3" step="0.01" name="diameterFlowExp" value={modelParams.diameterFlowExp} onChange={handleModelParamChange} style={styles.range} disabled={modelMode === '10xV4'} />
+            </div>
+            <div style={styles.inputGroup}>
+              <label style={styles.label}>Qoil/Qaq 最低安全比 <span style={{color:'#3498db'}}>{modelParams.minOilToAqRatio.toFixed(2)}</span></label>
+              <input type="range" min="0.9" max="1.5" step="0.01" name="minOilToAqRatio" value={modelParams.minOilToAqRatio} onChange={handleModelParamChange} style={styles.range} disabled={modelMode === '10xV4'} />
+            </div>
+            <button style={{...styles.button, backgroundColor:'#34495e', width:'100%', boxShadow:'none'}} onClick={resetModelProfile}>
+              重置当前模式参数
+            </button>
+          </div>
         </div>
 
         {/* === 右侧：全结果展示 === */}
         <div>
           <div style={styles.card}>
             <div style={styles.sectionTitle}><span>预测仪表盘</span><span>📊</span></div>
+            <div style={{fontSize:'12px', color:'#6c7a89', marginBottom:'10px'}}>
+              当前模型：<b>{results.modelLabel || MODEL_PROFILES[modelMode].label}</b>
+            </div>
             
             {/* 动态示意图 */}
             <div style={styles.visualBox}>
@@ -418,13 +489,14 @@ const calculateSimulation = useCallback(() => {
             </div>
             <div style={styles.logicRow}>
               <div style={styles.logicDesc}><b>计算公式:</b></div>
-              <div style={styles.logicFormula}>D ≈ Nozzle × (1 + 0.5 × Q_aq/Q_oil)</div>
+              <div style={styles.logicFormula}>D ≈ Nozzle × (k0 + k1 × (Q_aq/Q_oil)^β)</div>
             </div>
             <div style={styles.logicRow}>
               <div style={styles.logicDesc}>
                 当前总水相流速为 <b>{results.flowTotalInput}</b>，油相为 <b>{params.qOil}</b>。<br/>
                 水油流速比 (Flow Ratio) 为 <b>{results.flowRatio}</b>。<br/>
-                这导致液滴直径在喷嘴基础上膨胀了 <b>{(1 + 0.5 * parseFloat(results.flowRatio)).toFixed(2)}倍</b>。
+                当前模型参数：k0=<b>{results.diameterBase}</b>, k1=<b>{results.diameterFlowCoeff}</b>, β=<b>{results.diameterFlowExp}</b>。<br/>
+                这导致液滴直径在喷嘴基础上膨胀了 <b>{(parseFloat(results.diameterBase || '1') + parseFloat(results.diameterFlowCoeff || '0.5') * Math.pow(parseFloat(results.flowRatio || '0'), parseFloat(results.diameterFlowExp || '1'))).toFixed(2)}倍</b>。
               </div>
               <div style={styles.logicArrow}>➔</div>
               <div style={styles.logicDesc}><b>结果:</b> 液滴直径 {results.dropDiameter} μm</div>
