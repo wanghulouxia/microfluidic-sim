@@ -148,8 +148,10 @@ const calculateSimulation = useCallback(() => {
     const totalDrops = frequency * runTimeMin * 60;
 
     // --- E. 统计学与捕获 (Statistics) ---
-    // 1. 胶珠占有率 (Occupancy)
+    // 1. 胶珠个数密度与占有率 (Density + Occupancy)
     const beadSolidVol_uL = beadSolidVol_pL / 1e6;
+    // Bead浆液中每微升含有的胶珠数 (beads/uL slurry)
+    const beadNumberDensity = packingEfficiency / beadSolidVol_uL;
     // 每分钟有多少颗实体珠子流过？
     const beadsPerMin = flowSolid / beadSolidVol_uL;
     // 每生成一个液滴，平均分配到多少颗珠子？
@@ -193,6 +195,7 @@ const calculateSimulation = useCallback(() => {
       totalDrops: Math.floor(totalDrops).toLocaleString(),
       timeCell: timeCell.toFixed(1),
       timeBead: timeBead.toFixed(1),
+      beadNumberDensity: beadNumberDensity.toFixed(0),
       // 统计结果
       beadOccupancy: (beadOccupancy * 100).toFixed(1),
       lambda: lambda.toFixed(3),
@@ -365,6 +368,10 @@ const calculateSimulation = useCallback(() => {
                   <span style={styles.resultValue}>{results.frequency} Hz</span>
                 </div>
                 <div style={{...styles.resultItem, ...styles.borderPurple}}>
+                  <span style={styles.resultLabel}>胶珠个数密度</span>
+                  <span style={styles.resultValue}>{results.beadNumberDensity} /uL</span>
+                </div>
+                <div style={{...styles.resultItem, ...styles.borderPurple}}>
                   <span style={styles.resultLabel}>有效运行时间</span>
                   <span style={styles.resultValue}>{results.runTime} min</span>
                 </div>
@@ -443,6 +450,19 @@ const calculateSimulation = useCallback(() => {
               <div style={styles.logicArrow}>➔</div>
               <div style={styles.logicDesc}><b>结果:</b> 液体占比 {results.liquidRatio}%</div>
             </div>
+            <div style={styles.logicRow}>
+              <div style={styles.logicDesc}><b>Packing 概念:</b> Packing Efficiency = 胶珠实体体积 / Bead浆液总体积。值越高，单位体积浆液内胶珠越多。</div>
+            </div>
+            <div style={styles.logicRow}>
+              <div style={styles.logicDesc}><b>胶珠个数密度公式:</b></div>
+              <div style={styles.logicFormula}>N_bead = Packing / V_bead(single)</div>
+            </div>
+            <div style={styles.logicRow}>
+              <div style={styles.logicDesc}>
+                以当前参数计算，单珠体积为 <b>{results.beadSolidVol} pL</b>，堆积率为 <b>{params.packingEfficiency}</b>。<br/>
+                因此 Bead 浆液中的胶珠个数密度约为 <b>{results.beadNumberDensity} /uL</b>。
+              </div>
+            </div>
           </div>
 
           {/* 3. 运行时间与频率 */}
@@ -479,8 +499,16 @@ const calculateSimulation = useCallback(() => {
               <div style={styles.logicFormula}>Eff = P(Bead≥1) × P(Cell=1)</div>
             </div>
             <div style={styles.logicRow}>
+              <div style={styles.logicDesc}><b>Occupancy 概念:</b> Occupancy 表示每个液滴平均分到的胶珠数。100% 即平均每滴 1 颗珠。</div>
+            </div>
+            <div style={styles.logicRow}>
+              <div style={styles.logicDesc}><b>Occupancy 公式:</b></div>
+              <div style={styles.logicFormula}>Occ = Beads/min ÷ Drops/min</div>
+            </div>
+            <div style={styles.logicRow}>
               <div style={styles.logicDesc}>
-                1. <b>有珠率</b>: 珠子颗粒流速/液滴频率 = <b>{results.beadOccupancy}%</b>。<br/>
+                其中 Beads/min = 胶珠个数密度 × Bead 浆液流速 = <b>{results.beadNumberDensity}</b> × <b>{params.qBead}</b>。<br/>
+                1. <b>有珠率 (Occupancy)</b>: 珠子颗粒流速/液滴频率 = <b>{results.beadOccupancy}%</b>。<br/>
                 2. <b>有单细胞率</b>: 根据 Lambda ({results.lambda}) 的泊松分布。<br/>
                 只有两者同时满足，才算有效捕获。
               </div>
