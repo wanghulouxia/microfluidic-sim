@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 
 // --- 样式系统 ---
 const styles = {
@@ -95,11 +95,13 @@ const MicrofluidicSimulator = () => {
   };
 
   // --- 3. 核心计算逻辑 (Calculation) ---
-  useEffect(() => {
-    calculateSimulation();
-  }, [calculateSimulation]);// 将 calculateSimulation 添加至此
+  // useEffect(() => {
+  //   calculateSimulation();
+  // }, [calculateSimulation]);// 将 calculateSimulation 添加至此
 
-  const calculateSimulation = () => {
+  // const calculateSimulation = () => {
+  // 使用 useCallback 包裹函数
+const calculateSimulation = useCallback(() => {
     const { nozzleSize, volCell, volBead, volOil, cellTotal, beadSize, packingEfficiency, qCell, qBead, qOil } = params;
     const errors = [];
 
@@ -203,7 +205,11 @@ const MicrofluidicSimulator = () => {
       flowLiquidTotal: flowLiquidTotal.toFixed(2),
       flowTotalInput: flowTotalInput.toFixed(2)
     });
-  };
+  }, [params]); // 注意：这是 useCallback 的依赖数组
+// 使用稳定的 calculateSimulation 函数作为依赖
+  useEffect(() => {
+    calculateSimulation();
+  }, [calculateSimulation]); // 将 calculateSimulation 添加至此
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
